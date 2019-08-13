@@ -1,24 +1,48 @@
-version: '3.4'
+version: '3'
+
+networks:
+  mtr-monitor:
+    driver: bridge
+
 services:
   influxdb:
-    image: influxdb:1.4
+    image: influxdb:1.7-alpine
+    # container_name: "mtr-influxdb"
     ports:
-      - "8086:8086"
+      - "58086:8086"
     volumes:
-      - "./data/influxdb:/var/lib/influxdb"
-
-
-  mtr_monitor:
-    build: .
-    volumes:
-      - "./mtr-monitor:/mtr-monitor"
-    links:
-      - influxdb
-
+      - /etc/localtime:/etc/localtime:ro
+      - "/tmp/mtr-monitor/influxdb:/var/lib/influxdb"
+    networks:
+      - mtr-monitor
+    restart: always
 
   grafana:
-    image: grafana/grafana
-    ports:
-      - "3000:3000"
-    links:
+    image: grafana/grafana:6.3.2
+    # container_name: "mtr-grafana"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+    depends_on:
       - influxdb
+    ports:
+      - 3000:3000
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - /tmp/mtr-monitor/grafana:/var/lib/grafana
+    networks:
+      - mtr-monitor
+    restart: always
+
+  mtr:
+    build: .
+    # container_name: "mtr-monitor"
+    depends_on:
+      - grafana
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "./mtr-monitor:/mtr-monitor"
+    networks:
+      - mtr-monitor
+    restart: always
